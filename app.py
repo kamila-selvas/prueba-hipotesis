@@ -2,11 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from scipy import stats
+import google.generativeai as genai
 
 st.set_page_config(page_title="Prueba de Hipotesis", layout="wide")
-
 st.title("App de Prueba de Hipotesis")
 st.markdown("Desarrollada para el curso de Probabilidad y Estadistica")
 
@@ -30,7 +29,6 @@ if seccion == "Inicio":
 elif seccion == "Cargar datos":
     st.header("Cargar datos")
     opcion = st.radio("Como quieres ingresar los datos?", ["Subir CSV", "Generar datos sinteticos"])
-
     if opcion == "Subir CSV":
         archivo = st.file_uploader("Sube tu archivo CSV", type=["csv"])
         if archivo:
@@ -38,7 +36,6 @@ elif seccion == "Cargar datos":
             st.session_state["datos"] = df
             st.success("Archivo cargado correctamente")
             st.dataframe(df.head())
-
     elif opcion == "Generar datos sinteticos":
         media = st.number_input("Media de la distribucion", value=0.0)
         desviacion = st.number_input("Desviacion estandar", value=1.0, min_value=0.1)
@@ -52,21 +49,18 @@ elif seccion == "Cargar datos":
 
 elif seccion == "Visualizacion":
     st.header("Visualizacion de datos")
-
     if "datos" not in st.session_state:
         st.warning("Primero debes cargar o generar datos en la seccion Cargar datos")
     else:
         df = st.session_state["datos"]
         columna = df.columns[0]
         datos = df[columna]
-
         st.subheader("Estadisticas basicas")
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Media", f"{datos.mean():.4f}")
         col2.metric("Desv. estandar", f"{datos.std():.4f}")
         col3.metric("Minimo", f"{datos.min():.4f}")
         col4.metric("Maximo", f"{datos.max():.4f}")
-
         st.subheader("Histograma")
         fig1, ax1 = plt.subplots(figsize=(4, 2))
         ax1.hist(datos, bins=20, edgecolor="black", color="steelblue", density=True)
@@ -79,14 +73,12 @@ elif seccion == "Visualizacion":
         ax1.set_title("Histograma con curva normal")
         ax1.legend()
         st.pyplot(fig1, use_container_width=False)
-
         st.subheader("Boxplot")
         fig2, ax2 = plt.subplots(figsize=(4, 2))
         ax2.boxplot(datos, vert=False)
         ax2.set_xlabel("Valor")
         ax2.set_title("Boxplot de los datos")
         st.pyplot(fig2, use_container_width=False)
-
         st.subheader("Analisis de la distribucion")
         skewness = datos.skew()
         if abs(skewness) < 0.5:
@@ -95,7 +87,6 @@ elif seccion == "Visualizacion":
             st.write("La distribucion tiene sesgo positivo (cola hacia la derecha).")
         else:
             st.write("La distribucion tiene sesgo negativo (cola hacia la izquierda).")
-
         q1 = datos.quantile(0.25)
         q3 = datos.quantile(0.75)
         iqr = q3 - q1
@@ -104,25 +95,20 @@ elif seccion == "Visualizacion":
 
 elif seccion == "Prueba Z":
     st.header("Prueba de hipotesis Z")
-
     if "datos" not in st.session_state:
         st.warning("Primero debes cargar o generar datos en la seccion Cargar datos")
     else:
         df = st.session_state["datos"]
         datos = df[df.columns[0]]
-
         st.subheader("Parametros de la prueba")
-
         mu0 = st.number_input("Hipotesis nula (media poblacional H0)", value=0.0)
         sigma = st.number_input("Desviacion estandar poblacional (sigma)", value=1.0, min_value=0.01)
         alpha = st.selectbox("Nivel de significancia (alpha)", [0.01, 0.05, 0.10])
         tipo = st.radio("Tipo de prueba", ["Bilateral", "Cola izquierda", "Cola derecha"])
-
         if st.button("Calcular prueba Z"):
             n = len(datos)
             media_muestral = datos.mean()
             z = (media_muestral - mu0) / (sigma / np.sqrt(n))
-
             if tipo == "Bilateral":
                 p_value = 2 * (1 - stats.norm.cdf(abs(z)))
                 z_critico = stats.norm.ppf(1 - alpha / 2)
@@ -135,24 +121,20 @@ elif seccion == "Prueba Z":
                 p_value = 1 - stats.norm.cdf(z)
                 z_critico = stats.norm.ppf(1 - alpha)
                 rechazar = z > z_critico
-
             st.subheader("Resultados")
             col1, col2, col3 = st.columns(3)
             col1.metric("Media muestral", f"{media_muestral:.4f}")
             col2.metric("Estadistico Z", f"{z:.4f}")
             col3.metric("p-value", f"{p_value:.4f}")
-
             if rechazar:
                 st.error(f"Se rechaza H0. Hay evidencia suficiente para rechazar la hipotesis nula (alpha={alpha})")
             else:
                 st.success(f"No se rechaza H0. No hay evidencia suficiente para rechazar la hipotesis nula (alpha={alpha})")
-
             st.subheader("Grafica de la prueba")
             fig, ax = plt.subplots(figsize=(6, 3))
             x = np.linspace(-4, 4, 200)
             y = stats.norm.pdf(x)
             ax.plot(x, y, "b", linewidth=2)
-
             if tipo == "Bilateral":
                 ax.fill_between(x, y, where=(x < -z_critico), color="red", alpha=0.4, label="Region de rechazo")
                 ax.fill_between(x, y, where=(x > z_critico), color="red", alpha=0.4)
@@ -160,12 +142,10 @@ elif seccion == "Prueba Z":
                 ax.fill_between(x, y, where=(x < z_critico), color="red", alpha=0.4, label="Region de rechazo")
             else:
                 ax.fill_between(x, y, where=(x > z_critico), color="red", alpha=0.4, label="Region de rechazo")
-
             ax.axvline(z, color="green", linestyle="--", linewidth=2, label=f"Z calculado = {z:.4f}")
             ax.set_title("Distribucion normal con region critica")
             ax.legend()
             st.pyplot(fig, use_container_width=False)
-
             st.session_state["resultados_z"] = {
                 "n": n,
                 "media_muestral": media_muestral,
@@ -177,3 +157,40 @@ elif seccion == "Prueba Z":
                 "p_value": p_value,
                 "rechazar": rechazar
             }
+
+elif seccion == "Asistente IA":
+    st.header("Asistente de IA")
+    if "resultados_z" not in st.session_state:
+        st.warning("Primero debes realizar una prueba Z en la seccion Prueba Z")
+    else:
+        r = st.session_state["resultados_z"]
+        api_key = st.text_input("Ingresa tu API key de Gemini", type="password")
+        if st.button("Consultar a la IA"):
+            if not api_key:
+                st.error("Debes ingresar tu API key")
+            else:
+                try:
+                    genai.configure(api_key=api_key)
+                    model = genai.GenerativeModel("gemini-2.0-flash")
+                    prompt = (
+                        "Se realizo una prueba Z con los siguientes parametros:\n"
+                        f"- Media muestral: {r['media_muestral']:.4f}\n"
+                        f"- Media hipotetica (H0): {r['mu0']}\n"
+                        f"- Tamano de muestra: {r['n']}\n"
+                        f"- Desviacion estandar poblacional: {r['sigma']}\n"
+                        f"- Nivel de significancia: {r['alpha']}\n"
+                        f"- Tipo de prueba: {r['tipo']}\n"
+                        f"- Estadistico Z: {r['z']:.4f}\n"
+                        f"- p-value: {r['p_value']:.4f}\n"
+                        f"- Decision: {'Se rechaza H0' if r['rechazar'] else 'No se rechaza H0'}\n\n"
+                        "Por favor explica en terminos simples:\n"
+                        "1. Si la decision es correcta y por que\n"
+                        "2. Si los supuestos de la prueba Z son razonables\n"
+                        "3. Que significa este resultado en la practica"
+                    )
+                    with st.spinner("Consultando a Gemini..."):
+                        respuesta = model.generate_content(prompt)
+                        st.subheader("Respuesta de la IA")
+                        st.write(respuesta.text)
+                except Exception as e:
+                    st.error(f"Error: {e}")
