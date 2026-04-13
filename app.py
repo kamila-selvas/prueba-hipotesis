@@ -7,7 +7,7 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Prueba de Hipotesis", layout="wide")
 st.title("App de Prueba de Hipotesis")
-st.markdown("Desarrollada para el curso de Probabilidad y Estadistica")
+st.markdown("Probabilidad y Estadistica")
 
 st.sidebar.title("Menu")
 seccion = st.sidebar.radio("Selecciona una seccion:", [
@@ -19,8 +19,8 @@ seccion = st.sidebar.radio("Selecciona una seccion:", [
 ], key="menu")
 
 if seccion == "Inicio":
-    st.header("Bienvenida")
-    st.write("Esta aplicacion permite:")
+    st.header("Bienvenido")
+    st.write("Esta aplicacion permite realizar analisis estadisticos de manera interactiva:")
     st.write("- Cargar o generar datos estadisticos")
     st.write("- Visualizar su distribucion")
     st.write("- Realizar pruebas de hipotesis Z")
