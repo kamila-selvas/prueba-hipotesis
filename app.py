@@ -171,7 +171,7 @@ elif seccion == "Asistente IA":
             else:
                 try:
                     genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel("gemini-2.0-flash")
+                    model = genai.GenerativeModel("gemini-2.5-flash")
                     prompt = (
                         "Se realizo una prueba Z con los siguientes parametros:\n"
                         f"- Media muestral: {r['media_muestral']:.4f}\n"
