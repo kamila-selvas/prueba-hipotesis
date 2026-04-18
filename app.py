@@ -1,9 +1,23 @@
+import os
+from pathlib import Path
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-import google.generativeai as genai
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+try:
+    import google.generativeai as genai
+    genai_available = True
+except ImportError:
+    genai = None
+    genai_available = False
 
 st.set_page_config(page_title="Prueba de Hipotesis", layout="wide", page_icon="📊")
 
@@ -227,33 +241,69 @@ elif seccion == "🤖 Asistente IA":
         st.warning("⚠️ Primero debes realizar una prueba Z en la seccion Prueba Z")
     else:
         r = st.session_state["resultados_z"]
-        api_key = st.text_input("🔑 Ingresa tu API key de Gemini", type="password")
-        if st.button("🤖 Consultar a la IA"):
+        api_key = None
+        if genai_available:
+            if load_dotenv is not None:
+                load_dotenv()
+            api_key = os.getenv("GENAI_API_KEY") or os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAIAPIKEY")
             if not api_key:
-                st.error("Debes ingresar tu API key")
-            else:
-                try:
-                    genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel("gemini-2.5-flash")
-                    prompt = (
-                        "Se realizo una prueba Z con los siguientes parametros:\n"
-                        f"- Media muestral: {r['media_muestral']:.4f}\n"
-                        f"- Media hipotetica (H0): {r['mu0']}\n"
-                        f"- Tamano de muestra: {r['n']}\n"
-                        f"- Desviacion estandar poblacional: {r['sigma']}\n"
-                        f"- Nivel de significancia: {r['alpha']}\n"
-                        f"- Tipo de prueba: {r['tipo']}\n"
-                        f"- Estadistico Z: {r['z']:.4f}\n"
-                        f"- p-value: {r['p_value']:.4f}\n"
-                        f"- Decision: {'Se rechaza H0' if r['rechazar'] else 'No se rechaza H0'}\n\n"
-                        "Por favor explica en terminos simples:\n"
-                        "1. Si la decision es correcta y por que\n"
-                        "2. Si los supuestos de la prueba Z son razonables\n"
-                        "3. Que significa este resultado en la practica"
-                    )
-                    with st.spinner("✨ Consultando a Gemini..."):
-                        respuesta = model.generate_content(prompt)
+                env_path = Path(".env")
+                if env_path.exists():
+                    raw = env_path.read_text().strip()
+                    if raw and "=" not in raw:
+                        api_key = raw.splitlines()[0].strip()
+                    else:
+                        for line in raw.splitlines():
+                            if "=" in line:
+                                name, value = line.split("=", 1)
+                                if name.strip().upper() in ("GENAI_API_KEY", "API_KEY", "OPENAI_API_KEY", "OPENAIAPIKEY"):
+                                    api_key = value.strip()
+                                    break
+        if not genai_available:
+            st.error("La libreria google.generativeai no esta instalada. Instala la dependencia para usar el Asistente de IA.")
+        elif not api_key:
+            st.warning("No se encontro la clave de Gemini en .env. Crea un archivo .env con la clave o define GENAI_API_KEY.")
+        else:
+            try:
+                genai.configure(api_key=api_key)
+            except Exception:
+                pass
+            if st.button("🤖 Consultar a la IA"):
+                with st.spinner("✨ Consultando a Gemini..."):
+                    try:
+                        model = None
+                        if hasattr(genai, "GenerativeModel"):
+                            model = genai.GenerativeModel("gemini-2.5-flash")
+                        elif hasattr(genai, "TextGenerationModel"):
+                            model = genai.TextGenerationModel(name="gemini-2.5-flash")
+                        if model is None:
+                            raise RuntimeError("No se encontro un modelo valido de Gemini en la libreria.")
+                        prompt = (
+                            "Genera un resumen ejecutivo simple y facil de entender para alguien sin conocimientos de informatica ni estadistica. "
+                            "Explica toda la informacion mostrada en la aplicacion: los datos, las cifras principales, la prueba Z y la conclusion practica. "
+                            "Presenta la respuesta en lenguaje claro, con ejemplos sencillos y sin terminos tecnicos complicados.\n\n"
+                            "Datos de la muestra:\n"
+                            f"- Numero de observaciones: {r['n']}\n"
+                            f"- Media muestral: {r['media_muestral']:.4f}\n"
+                            f"- Media hipotetica (H0): {r['mu0']}\n"
+                            f"- Desviacion estandar poblacional: {r['sigma']}\n"
+                            f"- Nivel de significancia: {r['alpha']}\n"
+                            f"- Tipo de prueba: {r['tipo']}\n"
+                            f"- Estadistico Z: {r['z']:.4f}\n"
+                            f"- p-value: {r['p_value']:.4f}\n"
+                            f"- Decision: {'Se rechaza H0' if r['rechazar'] else 'No se rechaza H0'}\n\n"
+                            "Adicionalmente, explica en terminos faciles: \n"
+                            "1. Que significa cada numero importante en la pagina.\n"
+                            "2. Como entender si los resultados son buenos o preocupantes.\n"
+                            "3. Que accion o conclusion sencilla se puede tomar a partir de esta informacion."
+                        )
+                        if hasattr(model, "generate_content"):
+                            respuesta = model.generate_content(prompt)
+                            texto = respuesta.text
+                        else:
+                            respuesta = model.generate_text(prompt)
+                            texto = getattr(respuesta, "text", str(respuesta))
                         st.subheader("💬 Respuesta de la IA")
-                        st.write(respuesta.text)
-                except Exception as e:
-                    st.error(f" Error: {e}")
+                        st.write(texto)
+                    except Exception as e:
+                        st.error(f"Error al consultar Gemini: {e}")

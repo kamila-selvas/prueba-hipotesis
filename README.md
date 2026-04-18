@@ -1,6 +1,6 @@
 # App de Prueba de Hipótesis
 
-Aplicación interactiva desarrollada con Streamlit para lamateria de Probabilidad y Estadística.
+Aplicación interactiva desarrollada con Streamlit para la materia de Probabilidad y Estadística.
 
 ## Funcionalidades
 - Carga de datos CSV o generación sintética
